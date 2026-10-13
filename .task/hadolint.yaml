@@ -12,6 +12,7 @@ tasks:
     summary: |-
       Run hadolint across all Dockerfiles to identify Dockerfile issues, best practices, and security concerns.
     silent: true
+    run: when_changed
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
       - for:
@@ -29,6 +30,7 @@ tasks:
     sources:
       - containers/{{ index .MATCH 0 }}/Dockerfile
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:hadolint
     cmds:

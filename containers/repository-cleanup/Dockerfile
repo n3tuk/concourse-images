@@ -5,7 +5,7 @@ RUN apt-get update && apt-get upgrade --yes && apt-get clean
 RUN apt-get install --no-install-recommends --assume-yes awscli-2 jq bsdutils uuid-runtime && apt-get clean
 
 RUN mkdir -p /opt/task /opt/lib
-COPY scripts/bin/repository-cleanup /opt/task/repository-cleanup
-COPY scripts/lib /opt/lib
+COPY scripts/bin/repository-cleanup /usr/local/bin/cleanup
+COPY scripts/lib /usr/local/lib
 
-ENTRYPOINT ["/opt/task/repository-cleanup"]
+ENTRYPOINT ["/usr/local/bin/cleanup"]

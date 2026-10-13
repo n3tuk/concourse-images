@@ -2,84 +2,115 @@
 # vim:set ft=bash:
 
 function database:exists {
-  local region="${1}" endpoint="${2}" bucket="${3}" prefix="${4}" repository="${5}" etag="${6:-}"
-
-  log:debug "Checking for repository database" \
-    region="${region}" \
-    endpoint="${endpoint}" \
-    bucket="${bucket}" \
-    prefix="${prefix}" \
-    repository="${repository}" \
-    etag="${etag:-(none)}"
+  local bucket="${1}" database="${2}" etag="${3:-}"
+  local arguments output
 
   declare -a arguments=(
-    --region "${region}"
-    --endpoint-url "${endpoint}"
     head-object
     --bucket "${bucket}"
-    --key "${prefix}/${repository}.db.tar.gz"
+    --key "${database}"
   )
+
+  log:info "Checking for repository database" bucket="${bucket}" database="${database}" etag="${etag:-(none)}"
 
   if test -n "${etag}"; then
     arguments+=(--if-match "${etag}")
   fi
 
-  aws s3api "${arguments[@]}" >/dev/null
+  if ! output=$(aws s3api "${arguments[@]}" 2>&1); then
+    if grep -q "Not Found" <<<"${output}"; then
+      log:debug "Repository database does not exist" bucket="${bucket}" database="${database}" etag="${etag:-(none)}"
+      return 1
+    else
+      echo "${output}" >&2
+      log:warning "Failed to retrieve repository database metadata" bucket="${bucket}" database="${database}" \
+        etag="${etag:-(none)}"
+      return 1
+    fi
+  fi
+
+  return 0
 }
 
 function database:etag {
-  local region="${1}" endpoint="${2}" bucket="${3}" prefix="${4}" repository="${5}" etag="${6:-}"
+  local bucket="${1}" database="${2}"
   local metadata
 
-  log:debug "Retrieving repoistory metadata from Cloudflare" \
-    region="${region}" \
-    endpoint="${endpoint}" \
-    bucket="${bucket}" \
-    prefix="${prefix}" \
-    repository="${repository}" \
-    etag="${etag:-(none)}"
+  log:info "Retrieving repository database metadata" bucket="${bucket}" database="${database}"
 
-  declare -a arguments=(
-    --region "${region}"
-    --endpoint-url "${endpoint}"
-    head-object
-    --bucket "${bucket}"
-    --key "${prefix}/${repository}.db.tar.gz"
-  )
-
-  if test -n "${etag}"; then
-    arguments+=(--if-match "${etag}")
-  fi
-
-  metadata=$(aws s3api "${arguments[@]}" 2>/dev/null || echo "{}")
-  modified=$(jq --raw-output '.LastModified // "none"' <<<"${metadata}" 2>/dev/null)
-  etag=$(jq --raw-output '.ETag // "none"' <<<"${metadata}" 2>/dev/null | tr -d '"')
-
-  log:debug "Retrieved repository metadata" "modified=${modified}" "etag=${etag}"
-  echo "${etag}"
+  metadata=$(aws s3api head-object --bucket "${bucket}" --key "${database}" 2>/dev/null || echo "{}")
+  jq --raw-output '.ETag // "none"' <<<"${metadata}" 2>/dev/null | tr -d '"'
 }
 
-function database:retrieve {
-  local region="${1}" endpoint="${2}" bucket="${3}" prefix="${4}" repository="${5}"
-  local object="s3://${bucket}/${prefix}/${repository}.db.tar.gz"
+function database:get {
+  local database="${1}"
+  local arguments files
 
-  log:debug "Retriving repoistory database from Cloudflare" \
-    region="${region}" \
-    endpoint="${endpoint}" \
-    bucket="${bucket}" \
-    prefix="${prefix}" \
-    repository="${repository}" \
-    etag="${etag:-(none)}"
+  # We only need to download one version of each of the files as normally they are symlinked on the filesystem.
+  declare -a sources=("${database}" "${database%%.db.tar.gz}.files.tar.gz")
 
-  aws s3 --region "${region}" --endpoint-url "${endpoint}" cp "${object}" "${repository}.db.tar.gz" >/dev/null
+  log:info "Downloading the repository database" database="${database}"
+
+  for source in "${sources[@]}"; do
+    local destination="${source##*/}"
+
+    log:debug "Downloading the repository database file" source="${source}" destination="${destination}" \
+      symlink="${destination%%.tar.gz}"
+    aws s3 cp "${source}" "${destination}"
+    ln -sf "${destination}" "${destination%%.tar.gz}"
+  done
 }
 
 function database:extract {
-  local resource="${1}" repository="${2}"
+  local database="${1}"
 
-  log:debug "Extracting repository database" resource=repository-database repository="${repository}"
+  log:info "Extracting Repository database" database="${database}" destination="${database%/*}/db"
 
-  test -f "${resource}/${repository}.db.tar.gz"
-  mkdir -p "${resource}/db"
-  tar xzf "${resource}/${repository}.db.tar.gz" -C "${resource}/db"
+  if ! test -f "${database}"; then
+    log:warning "Repository database file does not exist" database="${database}"
+    return 1
+  fi
+
+  mkdir -p "${database%/*}/db"
+  tar xzf "${database}" -C "${database%/*}/db"
+}
+
+function database:update {
+  local database="${1}" packages="${2}"
+  local files
+
+  declare -a files
+  mapfile -t files < <(find "${packages}" -maxdepth 1 -type f -name "*.pkg.tar.zst")
+
+  if test "${#files[@]}" -eq 0; then
+    log:warning "No packages found" database="${database}" packages="${packages}" \
+      extension=".pkg.tar.zst"
+    return 0
+  fi
+
+  log:info "Updating the repository database" database="${database}" \
+    files="$(join_by ", " "${files[@]}")"
+
+  repo-add --prevent-downgrade --include-sigs "${database}" "${files[@]}"
+}
+
+function database:put {
+  local database="${1}" repository="${2}"
+  local arguments
+
+  log:info "Uploading repoistory database" database="${database}" repository="${repository}"
+
+  declare -a sources=("${database}" "${database%%.db.tar.gz}.files.tar.gz")
+
+  for source in "${sources[@]}"; do
+    destination="${repository}/${source##*/}"
+
+    log:debug "Uploading repository database file" source="${source}" destination="${destination}"
+
+    # Upload the same file twice, including once without the original .tar.gz extension, and as repo-add created a
+    # symlink on the filesystem, but symlinks are not supported in S3, also upload the same file without a .tar.gz
+    # extension to ensure that the file is available for retrieval, as if it were a symlink.
+    aws s3 cp --content-type application/gzip "${source}" "${destination}"
+    aws s3 cp --content-type application/gzip "${source}" "${destination%%.tar.gz}"
+  done
 }

@@ -16,7 +16,7 @@ source "${LIB_DIR}/payload.sh"
 # shellcheck source=../lib/database.sh
 source "${LIB_DIR}/database.sh"
 
-log:info "Initiating Arch Linux repository database check"
+log:info "Initialising Arch Linux repository database check"
 
 check:commands aws jq logger mktemp uuidgen
 
@@ -26,27 +26,37 @@ if [[ "$(payload:source disable false false)" == "true" ]]; then
   exit 0
 fi
 
-region=$(payload:source region true weur)
 endpoint=$(payload:source endpoint)
+region=$(payload:source region true weur)
 bucket=$(payload:source bucket)
-prefix=$(payload:source prefix)
 repository=$(payload:source repository)
+arch=$(payload:source arch)
+prefix="s3://${bucket}/${repository}/os/${arch}"
+
+check:variables endpoint region bucket repository arch
 
 access_key_id=$(payload:source access_key_id true "" true)
-export AWS_ACCESS_KEY_ID="${access_key_id}"
 secret_access_key=$(payload:source secret_access_key true "" true)
+
+check:variables access_key_id:sensitive secret_access_key:sensitive
+
+export AWS_ACCESS_KEY_ID="${access_key_id}"
 export AWS_SECRET_ACCESS_KEY="${secret_access_key}"
+export AWS_ENDPOINT_URL="${endpoint}"
+export AWS_DEFAULT_REGION="${region}" AWS_REGION="${region}"
 
-if ! database:exists "${region}" "${endpoint}" "${bucket}" "${prefix}" "${repository}"; then
-  echo "[]" >&3
-  log:fatal "Repository database does not exist" bucket="${bucket}" repository="${prefix}/${repository}"
-fi
+function failure {
+  echo -n '[]' >&3
+  log:fatal "Failed to check the repository database" repository="${prefix}" database="${repository}.db.tar.gz"
+}
 
-etag=$(database:etag "${region}" "${endpoint}" "${bucket}" "${prefix}" "${repository}")
+# If any of the following commands fail, then handle the failure with the failure() function above. This will simplify
+# the error handling and logging, and ensure that the output is always in the expected format for Concourse.
+trap failure ERR
 
-log:info "Repository database checked" bucket="${bucket}" repository="${prefix}/${repository}" etag="${etag}"
+database:exists "${bucket}" "${repository}/os/${arch}/${repository}.db.tar.gz"
 
-# Output a version with the entity tag of the database file to indicate the current version of the repository database,
-# and trigger a run if a new tag for the database is available (which usually means there are packages to clean up). By
-# only returning the current tag, we let Concourse decide when a new version has been retrieved and processed.
+etag=$(database:etag "${bucket}" "${repository}/os/${arch}/${repository}.db.tar.gz")
+log:info "Repository database checked" repository="${prefix}" database="${repository}.db.tar.gz" etag="${etag}"
+
 jq --monochrome-output --compact-output --null-input --arg "etag" "${etag}" '[{"etag":$etag}]' >&3

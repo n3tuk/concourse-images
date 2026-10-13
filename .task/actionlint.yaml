@@ -13,6 +13,7 @@ tasks:
       - .github/workflows/*.yaml
       - .github/actionlint.yaml
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:actionlint
     cmds:

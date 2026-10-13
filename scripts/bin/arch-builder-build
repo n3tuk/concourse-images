@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# vim:set ft=bash:
+
+set -euo pipefail
+
+LIB_DIR=$(realpath "$(dirname "${0}")/../lib")
+export LIB_DIR
+
+# shellcheck source=../lib/common.sh
+source "${LIB_DIR}/common.sh"
+# shellcheck source=../lib/build.sh
+source "${LIB_DIR}/build.sh"
+
+log:info "Initialising Arch Linux Repository package builder" workdir="${PWD:-}"
+
+check:commands jq logger makepkg uuidgen
+
+# Ensure all package databases are up-to-date (but don't upgrade any packages).
+sudo pacman -Sy
+
+# This path is hard-coded in the pipeline; there is no way to derive this automatically
+build:makepkg aur
+build:save aur packages
+
+log:info "All packages for package base successfully built"

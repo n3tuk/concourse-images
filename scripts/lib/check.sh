@@ -14,13 +14,13 @@ function check:variables {
 # and exit the script
 function check:variable {
   local variable=${1%%:*}
-  local sensitive=0
+  local sensitive=false
 
   # Allow us to check for the presence of the variable, but not output the contents, when we know the information will
   # be sensitive (in most cases GitHub Actions should protect against this, but we should avoid doing it regardless,
   # where possible)
   if [[ ${1##*:} == "sensitive" ]]; then
-    sensitive=1
+    sensitive=true
   fi
 
   set +u # Don't error out on unbound variables in this part of the function
@@ -29,11 +29,7 @@ function check:variable {
   fi
   set -u # We know the variable is bound now, restore the check
 
-  if [[ ${sensitive} -eq 0 ]]; then
-    output:variable "${variable}"
-  else
-    log:debug "variable=${variable}" empty="false" sensitive="true"
-  fi
+  output:variable "${variable}" "${sensitive}"
 }
 
 # Check to see if all the commands provided exist and are executable (and as such are available via the $PATH variable),
@@ -70,22 +66,5 @@ function check:path {
     echo "${GITHUB_WORKSPACE}/${path:1}"
   else
     echo "${GITHUB_WORKSPACE}/${path}"
-  fi
-}
-
-# Deal with the different methods of reference the location of the Terraform configuration, including relative to the
-# repository (path/to), relative to the root of the repository (./path/to), and absolute paths within the repository
-# (/path/to). For each case, provide a clean version of the path which can be used for display/naming purposes.
-function check:name {
-  local name=${1:-.}
-
-  if [[ ${name} == "." || ${name} == "/" || ${name} == "./" ]]; then
-    echo "."
-  elif [[ ${name:0:2} == "./" ]]; then
-    echo "${name}"
-  elif [[ ${name:0:1} == "/" ]]; then
-    echo "./${name:1}"
-  else
-    echo "./${name}"
   fi
 }

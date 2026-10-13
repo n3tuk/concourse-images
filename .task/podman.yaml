@@ -28,6 +28,7 @@ tasks:
       Build all the container images for the repository, using podman, to ensure that all dependencies and
       configurations are properly set up and ready for deployment.
     silent: true
+    run: when_changed
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
       - for:
@@ -50,6 +51,7 @@ tasks:
       - scripts/bin/{{ index .MATCH 0 }}-*
       - scripts/lib/*.sh
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:podman
       - task: hadolint
@@ -58,12 +60,50 @@ tasks:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
       - cmd: podman build --tag '{{ index .MATCH 0 }}:testing' --file containers/{{ index .MATCH 0 }}/Dockerfile .
 
+  podman:push:
+    desc: Push the development container image to ghcr.io
+    summary: |-
+      Push a copy of the development container image (via the `testing` tag) to ghcr.io to make it available for use in
+      other environments or by other users for additional testing and development purposes.
+    silent: true
+    cmds:
+      - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
+      - for:
+          var: containers
+          as: container
+        task: podman:push:{{ .container }}
+
+  podman:push:*:
+    label: '{{ trimSuffix ":*" .TASK }}:{{ default .default (index .MATCH 0) }}'
+    prefix: '{{ trimSuffix ":*" .TASK }}:{{ index .MATCH 0 }}'
+    desc: Push the development container image to ghcr.io
+    summary: |-
+      Push a copy of the development container image (via the `testing` tag) to ghcr.io to make it available for use in
+      other environments or by other users for additional testing and development purposes.
+    sources:
+      - containers/{{ index .MATCH 0 }}/Dockerfile
+      - containers/{{ index .MATCH 0 }}/assets/*
+      - common/assets/*
+      - scripts/bin/{{ index .MATCH 0 }}
+      - scripts/bin/{{ index .MATCH 0 }}-*
+      - scripts/lib/*.sh
+    silent: true
+    run: when_changed
+    deps:
+      - task: check:exec:podman
+      - task: podman:build
+    cmds:
+      - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
+      - cmd: podman tag 'localhost/{{ index .MATCH 0 }}:testing' 'ghcr.io/n3tuk/concourse/{{ index .MATCH 0 }}:testing'
+      - cmd: podman push 'ghcr.io/n3tuk/concourse/{{ index .MATCH 0 }}:testing'
+
   podman:clean:
     desc: Clean up all the container images for this repository.
     summary: |-
       Clean up all the container images for the repository to free up disk space and remove any unused or outdated
       images that may be taking up unnecessary resources.
     silent: true
+    run: once
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mPassed\e[0m'{{ end }}"
       - for:

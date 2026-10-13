@@ -45,6 +45,7 @@ tasks:
               -print 2>/dev/null \
             | sed 's|^\./||' | paste -sd' ' - ) || echo 'README.md'
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:prettier
     cmds:

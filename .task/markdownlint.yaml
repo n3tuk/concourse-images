@@ -23,6 +23,7 @@ tasks:
           ( find . -type f -not -path './.codeql/*' -and -iname '*.md' -print 2>/dev/null \
             | sed 's|^\./||' | paste -sd' ' - ) || true
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:markdownlint
       - task: prettier

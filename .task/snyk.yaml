@@ -27,6 +27,7 @@ tasks:
       Run Snyk Container against the locally-built testing image for a specific container. Snyk uses its default
       behaviour and fails when it finds a vulnerability.
     silent: true
+    run: when_changed
     sources:
       - containers/{{ index .MATCH 0 }}/Dockerfile
       - containers/{{ index .MATCH 0 }}/assets/*

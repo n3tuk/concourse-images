@@ -15,8 +15,10 @@ source "${LIB_DIR}/common.sh"
 source "${LIB_DIR}/payload.sh"
 # shellcheck source=../lib/ntfysh.sh
 source "${LIB_DIR}/ntfysh.sh"
+# shellcheck source=../lib/metadata.sh
+source "${LIB_DIR}/metadata.sh"
 
-log:info "Initiating ntfy.sh notification output"
+log:info "Initialising ntfy.sh notification upload"
 
 check:commands jq logger mktemp uuidgen
 
@@ -28,11 +30,15 @@ fi
 
 endpoint=$(payload:source endpoint true "https://ntfy.sh")
 topic=$(payload:source topic true)
-
+repository=$(payload:params repository true)
+arch=$(payload:params arch true "x86_64")
 type=$(payload:params type false)
 priority=$(payload:params priority true low)
 title=$(payload:params title false)
 message=$(payload:params message false)
+
+check:variables endpoint topic repository priority
+output:variables type title message
 
 if test -z "${1:-}"; then
   log:fatal "Missing working directory argument"
@@ -40,15 +46,54 @@ fi
 
 cd "${1}"
 
+url=$(ntfysh:url:job)
+
 case "${type:-custom}" in
-  repository-cleanup-success)
-    message=$(ntfysh:message:cleanup:success)
-    title=${title:-"Repository Cleanup Completed"}
+  packages-build-error)
+    base=$(payload:params base true)
+    title=${title:-"${base} Package Build Error"}
+    message=$(ntfysh:message:build:error "${repository}" "${arch}" "${base}")
+    priority=${priority:-"high"}
+    ;;
+  packages-build-failure)
+    base=$(payload:params base true)
+    title=${title:-"${base} Package Build Failed"}
+    message=$(ntfysh:message:build:failure "${repository}" "${arch}" "${base}")
+    priority=${priority:-"high"}
+    ;;
+  packages-sign-failure)
+    base=$(payload:params base true)
+    version=$(metadata:release)
+    title=${title:-"${base} Package Sign Failed"}
+    message=$(ntfysh:message:sign:failure "${repository}" "${arch}" "${base}" "${version}")
+    priority=${priority:-"high"}
+    ;;
+  packages-update-error)
+    base=$(payload:params base true)
+    title=${title:-"${repository} Repository Update Error"}
+    message=$(ntfysh:message:update:error "${repository}" "${arch}" "${base}")
+    priority=${priority:-"high"}
+    ;;
+  repository-update-success)
+    base=$(payload:params base true)
+    version=$(metadata:release)
+    title=${title:-"${base} updated to v${version} in ${repository} Repository"}
+    # Override the URL for the success job to point to the whole pipeline rather than a specific job, as we do not need
+    # to target that job to review errors or logs
+    url=$(ntfysh:url:pipeline)
+    message=$(ntfysh:message:update:success "${repository}" "${arch}" "${base}" "${version}")
     priority=${priority:-"low"}
     ;;
+  repository-update-failure)
+    base=$(payload:params base true)
+    version=$(metadata:release)
+    title=${title:-"${repository} Repository Update Failure"}
+    message=$(ntfysh:message:update:failure "${repository}" "${arch}" "${base}" "${version}")
+    priority=${priority:-"high"}
+    ;;
   repository-cleanup-failure)
-    message=$(ntfysh:message:cleanup:failure)
-    title=${title:-"Repository Cleanup Failed"}
+    title=${title:-"${repository} Repository Cleanup Failure"}
+    message=$(ntfysh:message:cleanup:failure "${repository}" "${arch}")
     priority=${priority:-"high"}
     ;;
   custom)
@@ -69,7 +114,7 @@ case "${priority}" in
 esac
 
 sequence=$(uuidgen -r)
-ntfysh:send "${endpoint}/${topic}" "${sequence}" "${priority}" "${title}" "${message}"
+ntfysh:send "${endpoint}/${topic}" "${sequence}" "${priority}" "${title}" "${message}" "${url}"
 
 jq --monochrome-output --compact-output --null-input \
   --arg "sequence" "${sequence}" --arg "type" "${type:-custom}" --arg "priority" "${priority}" \

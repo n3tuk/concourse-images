@@ -11,6 +11,7 @@ tasks:
       artifact integrity, excessive permissions, injection weaknesses, secrets exposure weaknesses, trigger misuse, and
       unpinned dependencies.
     silent: true
+    run: when_changed
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mCompleted\e[0m'{{ end }}"
       - task: zizmor:workflows
@@ -25,6 +26,7 @@ tasks:
       - .github/workflows/*.yaml
       - .github/zizmor.yaml
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:zizmor
     cmds:
@@ -41,6 +43,7 @@ tasks:
       - .github/dependabot.yaml
       - .github/zizmor.yaml
     silent: true
+    run: when_changed
     deps:
       - task: check:exec:zizmor
     cmds:
