@@ -6,6 +6,9 @@ set -euo pipefail
 exec 3>&1 # make stdout available as fd 3 for the result
 exec 1>&2 # redirect all output to stderr for logging
 
+# Guarantee Concourse always receives a valid JSON object on stdout, even on failure.
+trap 'echo "{}" >&3' ERR
+
 payload=$(cat <&0)
 timestamp=$(jq --raw-output '.version.timestamp // "none"' <<< "${payload}")
 
