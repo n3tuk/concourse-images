@@ -92,7 +92,7 @@ function ntfysh:message:update:error {
   local repository="${1}" arch="${2}" package="${3}" version="${4}"
 
   cat <<EOF | tr '\n' ' '
-Concourse is reporting a **error** in the pipeline when updating the \`${repository}/${arch}\` Arch Linux repository
+Concourse is reporting an **error** in the pipeline when updating the \`${repository}/${arch}\` Arch Linux repository
 database with \`${package}\` \`v${version}\`. Please go to the pipeline and review the \`update\` job logs for more
 information.
 EOF

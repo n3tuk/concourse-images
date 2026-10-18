@@ -71,14 +71,17 @@ function build:save {
 
 function build:import {
   local key="${1}" passphrase="${2}"
+  local tmp
 
   log:info "Importing the GPG private key for signing"
 
-  temp=$(mktemp /tmp/.XXXXXXXX.key)
-  echo "${key}" >"${temp}"
+  tmp=$(mktemp "${HOME}/.import.XXXXXXXX.key")
+  # Remove the on-disk key material even if the import fails part-way through.
+  trap 'shred -u "${tmp}" 2>/dev/null || rm -f "${tmp}"' RETURN
 
-  echo "${passphrase}" | gpg --batch --passphrase-fd 0 --pinentry-mode loopback --yes --import "${temp}"
-  shred -u "${temp}"
+  printf '%s\n' "${key}" >"${tmp}"
+  printf '%s\n' "${passphrase}" \
+    | gpg --batch --passphrase-fd 0 --pinentry-mode loopback --yes --import "${tmp}"
 }
 
 function build:sign {
@@ -97,17 +100,17 @@ function build:sign {
   version=$(build:version "${packages}")
 
   log:info "Signing Arch Linux Repository package" packages="${packages}" package="${package}" version="${version}" \
-    id="0x${id}"
+    id="${id}"
 
   for file in "${files[@]}"; do
     if [[ ! -r ${file} ]]; then
-      log:warning "Package found, but it does not exist or is not readable" packages="${packages}" package="${package}" \
-        version="${version}" file="${file}"
+      log:warning "Package found, but it does not exist or is not readable" packages="${packages}" \
+        package="${package}" version="${version}" file="${file}"
       continue
     fi
 
     log:debug "Signing build artifact" packages="${packages}" package="${package}" version="${version}" file="${file}" \
-      id="0x${id}"
+      id="${id}"
 
     echo "${passphrase}" \
       | gpg --local-user "${id}" --batch --passphrase-fd 0 --pinentry-mode loopback --yes \
@@ -118,9 +121,9 @@ function build:sign {
 function build:cleanup {
   local id="${1}" fingerprint="${2}"
 
-  log:info "Removing the GPG private key for signing" id="0x${id}" fingerprint="${fingerprint}"
+  log:info "Removing the GPG private key for signing" id="${id}" fingerprint="${fingerprint}"
 
   if ! gpg --batch --yes --delete-secret-key "${fingerprint}"; then
-    log:warning "Failed to remove the GPG private key" id="0x${id}" fingerprint="${fingerprint}"
+    log:warning "Failed to remove the GPG private key" id="${id}" fingerprint="${fingerprint}"
   fi
 }
