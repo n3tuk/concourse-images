@@ -47,7 +47,7 @@ REVIEW.md, REVIEW-*.patch        Standing code-review findings and ready-to-appl
 
 - `common.sh` — sources `check.sh`, `log.sh`, `output.sh`; defines `join_by`. Entry point for libs.
 - `log.sh` — structured logfmt logging to **stderr** plus RFC5424 via `logger`. Levels:
-  `log:debug|info|warning|error|fatal` and `log:success|failure`. `log:fatal` prints at `crit` and `exit 1`.
+  `log:debug|info|warning|error|fatal`. `log:fatal` prints at `crit` and `exit 1`.
 - `check.sh` — `check:variables` / `check:commands` (fatal if missing); `name:sensitive` suffix suppresses value
   logging.
 - `output.sh` — `output:variable(s)` debug-logs variable presence/value (respects sensitivity).

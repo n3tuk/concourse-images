@@ -87,18 +87,6 @@ function log:fmt() {
     --rfc5424=notq --sd-id logType@1 "${arguments[@]}" "${msg:-}" || true
 }
 
-function log:success() {
-  local msg="${1}"
-  shift
-  log:fmt "info" "${msg}" type="success" "${@}"
-}
-
-function log:failure() {
-  local msg="${1}"
-  shift
-  log:fmt "warning" "${msg}" type="failure" "${@}"
-}
-
 function log:info() {
   local msg="${1}"
   shift
