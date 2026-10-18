@@ -38,7 +38,7 @@ arch=$(payload:source arch)
 base=$(payload:source base)
 prefix="s3://${bucket}/${repository}/os/${arch}"
 
-check:variables region endpoint bucket repository arch base
+check:variables endpoint region bucket repository arch base
 
 access_key_id=$(payload:source access_key_id true "" true)
 secret_access_key=$(payload:source secret_access_key true "" true)
