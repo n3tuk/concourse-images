@@ -78,7 +78,7 @@ function packages:put {
   fi
 
   log:info "Uploading packages to the repository" repository="${repository}" base="${base}" path="${path}" \
-    files="$(join_by ", " "${files[*]}")"
+    files="$(join_by ", " "${files[@]}")"
 
   for file in "${files[@]}"; do
     if ! package:cp "${file}" "${repository}/${file##*/}"; then
@@ -95,7 +95,7 @@ function packages:put {
     done
 
     log:fatal "Failed to upload one or more packages" repository="${repository}" base="${base}" path="${path}" \
-      files="$(join_by ", " "${files[*]}")"
+      files="$(join_by ", " "${files[@]}")"
   fi
 }
 
