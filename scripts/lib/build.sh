@@ -52,7 +52,7 @@ function build:save {
 
   for file in "${files[@]}"; do
     if [[ ! -r ${file} ]]; then
-      log:warning "Package found, but it does not exist or is not readable" resource="${resource}" file="${file}"
+      log:warning "Package found, but it does not exist or is not readable" source="${source}" file="${file}"
       continue
     fi
 
