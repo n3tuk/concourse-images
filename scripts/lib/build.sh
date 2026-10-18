@@ -1,9 +1,22 @@
 #!/usr/bin/env bash
 # vim:set ft=bash:
 
+# srcinfo:field
+#   Extract the first value for the given key from a .SRCINFO file, tolerating optional surrounding
+#   whitespace around both the key and the '=' separator. Both the package builder and the metadata
+#   generator read .SRCINFO, so they must agree on this parsing; keep all extraction routed here.
+#
+# file - The path to the .SRCINFO file to read.
+# key  - The field name to extract (e.g. pkgbase, pkgver, pkgrel).
+function srcinfo:field {
+  local file="${1}" key="${2}"
+  grep -E "^[[:space:]]*${key}[[:space:]]*=" "${file}" \
+    | head -n 1 | cut -d= -f2- | tr -d '[:space:]'
+}
+
 function build:package {
   local resource="${1}" name
-  name=$(grep -E '^pkgbase\s?=' "${resource}/.SRCINFO" | awk -F '=' '{print $2}' | tr -d '[:space:]')
+  name=$(srcinfo:field "${resource}/.SRCINFO" pkgbase)
 
   if test -z "${name}"; then
     log:fatal "Failed to extract package base name from .SRCINFO" resource="${resource}" file=".SRCINFO"
@@ -15,8 +28,8 @@ function build:package {
 
 function build:version {
   local resource="${1}" version release
-  version=$(grep -E '^\spkgver\s?=' "${resource}/.SRCINFO" | awk -F '=' '{print $2}' | tr -d '[:space:]')
-  release=$(grep -E '^\spkgrel\s?=' "${resource}/.SRCINFO" | awk -F '=' '{print $2}' | tr -d '[:space:]')
+  version=$(srcinfo:field "${resource}/.SRCINFO" pkgver)
+  release=$(srcinfo:field "${resource}/.SRCINFO" pkgrel)
 
   if test -z "${version}" || test -z "${release}"; then
     log:fatal "Failed to extract package version from .SRCINFO" resource="${resource}" file=".SRCINFO"
