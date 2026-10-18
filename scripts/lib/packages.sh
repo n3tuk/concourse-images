@@ -33,10 +33,16 @@ function packages:get {
     release="${release}" files="$(join_by ", " "${files[@]}")"
 
   for file in "${files[@]}"; do
+    # Reject any file names that are not a simple file name with the expected extension, preventing any path traversal
+    # or other unexpected file names from being used to download files from the repository by a malicious metadata file.
+    if [[ ${file} != "$(basename "${file}")" || ! ${file} =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*\.pkg\.tar\.zst$ ]]; then
+      log:fatal "Refusing to process package file with an unexpected name" base="${base}" file="${file}"
+    fi
+
     log:debug "Downloading package file from the repository" repository="${repository}" base="${base}" \
       release="${release}" file="${file}"
 
-    if ! output=$(aws s3 cp "${repository}/${file}" "${file}" 2>&1); then
+    if ! output=$(aws s3 cp "${repository}/${file}" "./${file}" 2>&1); then
       echo "${output}" >&2
       log:fatal "Failed to download package file" repository="${repository}" base="${base}" release="${release}" \
         file="${file}"
@@ -45,7 +51,7 @@ function packages:get {
     log:debug "Downloading package file signature from the repository" repository="${repository}" base="${base}" \
       release="${release}" file="${file}.sig"
 
-    if ! output=$(aws s3 cp "${repository}/${file}.sig" "${file}.sig" 2>&1); then
+    if ! output=$(aws s3 cp "${repository}/${file}.sig" "./${file}.sig" 2>&1); then
       echo "${output}" >&2
       log:fatal "Failed to download package file signature" repository="${repository}" base="${base}" \
         release="${release}" file="${file}.sig"
