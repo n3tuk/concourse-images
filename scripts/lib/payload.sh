@@ -1,12 +1,19 @@
 #!/usr/bin/env bash
 # vim:set ft=bash:
 
-set +e # We need to be able to handle the timeout command failing
-payload=$(timeout 3s cat <&0)
-if test -z "${payload}"; then
-  log:fatal "Missing payload from stdin"
-fi
-set -e
+# payload:read
+#   Read the resource payload JSON from stdin into the global ${payload}. Each entrypoint calls this
+#   once, after the libraries are sourced, so that sourcing this file has no side effects — which
+#   keeps the library unit-testable under BATS and avoids blocking on stdin at source time.
+#
+# timeout - Seconds to wait for stdin before giving up. Defaults to 3.
+function payload:read {
+  local timeout="${1:-3}"
+  payload=$(timeout "${timeout}s" cat <&0 || true)
+  if test -z "${payload}"; then
+    log:fatal "Missing payload from stdin"
+  fi
+}
 
 # payload:lookup
 #   Looks up a value from the JSON object passed as the resource payload to the STDIN of this script's execution. If the

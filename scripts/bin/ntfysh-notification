@@ -22,6 +22,8 @@ log:info "Initialising ntfy.sh notification upload"
 
 check:commands jq logger mktemp uuidgen
 
+payload:read
+
 # If this source is disabled, return an empty array to indicate no versions
 if [[ "$(payload:source disable false false)" == "true" ]]; then
   echo "{}" >&3
