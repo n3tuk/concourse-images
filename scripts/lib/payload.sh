@@ -27,7 +27,10 @@ function payload:read {
 #             logged in debug output.
 function payload:lookup {
   local type="${1}" key="${2}" required="${3:-true}" default="${4:-}" sensitive="${5:-false}"
-  value=$(jq --raw-output ".${type}.${key} // \"${default}\"" <<<"${payload}")
+
+  value=$(jq --raw-output \
+    --arg type "${type}" --arg key "${key}" --arg default "${default}" \
+    '(.[$type][$key]) // $default // ""' <<<"${payload}")
 
   if [[ ${required} == "true" && -z ${value} ]]; then
     log:fatal "Missing required ${type} value" type="${type}" key="${key}" exists="false"
