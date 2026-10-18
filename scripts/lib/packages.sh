@@ -89,11 +89,11 @@ function packages:put {
     fi
   done
 
-  if test $rollback -ne 0; then
+  if test "${rollback}" -ne 0; then
     # Make sure we delete all the files we have uploaded so far, as we don't want to leave the repository in a
-    # half-uploaded state, and, as we have not updated he database, the cleanup job will not trigger.
+    # half-uploaded state, and, as we have not updated the database, the cleanup job will not trigger.
     for file in "${files[@]}"; do
-      package:rm "${dest}/${file##*/}"
+      package:rm "${repository}/${file##*/}"
     done
 
     log:fatal "Failed to upload one or more packages" repository="${repository}" base="${base}" path="${path}" \
