@@ -44,12 +44,12 @@ function metadata:put {
     log:fatal "Missing .SRCINFO file" base="${base}" path="${path}" file=".SRCINFO"
   fi
 
-  description=$(cat "${path}/.SRCINFO" | grep -E '^\s?pkgdesc\s?=' | head -n 1 | awk -F = '{print $2}' | sed -e 's/^\s*//g')
-  version=$(cat "${path}/.SRCINFO" | grep -E '^\s?pkgver\s?=' | awk -F = '{print $2}' | tr -d '[:space:]')
-  release=$(cat "${path}/.SRCINFO" | grep -E '^\s?pkgrel\s?=' | awk -F = '{print $2}' | tr -d '[:space:]')
+  description=$(grep -E '^[[:space:]]*pkgdesc[[:space:]]*=' "${path}/.SRCINFO" | head -n 1 | cut -d= -f2- | sed -e 's/^[[:space:]]*//')
+  version=$(grep -E '^[[:space:]]*pkgver[[:space:]]*=' "${path}/.SRCINFO" | head -n 1 | cut -d= -f2- | tr -d '[:space:]')
+  release=$(grep -E '^[[:space:]]*pkgrel[[:space:]]*=' "${path}/.SRCINFO" | head -n 1 | cut -d= -f2- | tr -d '[:space:]')
 
   declare -a packages
-  mapfile -t packages < <(cat "${path}/.SRCINFO" | grep -E '^pkgname\s?=' | awk -F = '{print $2}' | tr -d '[:space:]')
+  mapfile -t packages < <(grep -E '^[[:space:]]*pkgname[[:space:]]*=' "${path}/.SRCINFO" | cut -d= -f2- | tr -d '[:space:]')
 
   if [[ ${#packages[@]} -eq 0 ]]; then
     log:fatal "No packages listed in the .SRCINFO" base="${base}" path="${path}" file=".SRCINFO"
