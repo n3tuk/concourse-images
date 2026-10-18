@@ -44,7 +44,7 @@ function database:etag {
 
 function database:get {
   local database="${1}"
-  local arguments files
+  local arguments files output
 
   # We only need to download one version of each of the files as normally they are symlinked on the filesystem.
   declare -a sources=("${database}" "${database%%.db.tar.gz}.files.tar.gz")
@@ -56,7 +56,14 @@ function database:get {
 
     log:debug "Downloading the repository database file" source="${source}" destination="${destination}" \
       symlink="${destination%%.tar.gz}"
-    aws s3 cp "${source}" "${destination}"
+
+    # Capture the AWS error so a failure surfaces as a structured fatal (consistent with the other
+    # download helpers) rather than aborting with a raw stack trace under set -e.
+    if ! output=$(aws s3 cp "${source}" "${destination}" 2>&1); then
+      echo "${output}" >&2
+      log:fatal "Failed to download repository database file" source="${source}" destination="${destination}"
+    fi
+
     ln -sf "${destination}" "${destination%%.tar.gz}"
   done
 }
