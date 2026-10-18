@@ -1,7 +1,9 @@
 # ntfy.sh Notification Resource for Concourse
 
-A Concourse [custom resource type](https://concourse-ci.org/implementing-resource-types.html) that sends build
-notifications to an [ntfy.sh](https://ntfy.sh/) topic. It is based on `dhi.io/debian-base:trixie`.
+A Concourse custom [resource type][resource] that sends build notifications to an [ntfy.sh](https://ntfy.sh/) topic. It
+is based on `dhi.io/debian-base:trixie`.
+
+[resource]: https://concourse-ci.org/implementing-resource-types.html
 
 Because notifications only make sense as a `put`, the resource uses minimal `check`/`in` implementations (the shared
 `empty-check`/`empty-in` timestamp scripts) and does its work in `out` (`ntfysh-notification`):

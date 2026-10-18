@@ -82,7 +82,7 @@ function build:import {
 }
 
 function build:sign {
-  local packages="${1}" fingerprint="${2}" passphrase="${3}"
+  local packages="${1}" id="${2}" passphrase="${3}"
   local package version
 
   declare -a files
@@ -97,7 +97,7 @@ function build:sign {
   version=$(build:version "${packages}")
 
   log:info "Signing Arch Linux Repository package" packages="${packages}" package="${package}" version="${version}" \
-    fingerprint="${fingerprint}"
+    id="0x${id}"
 
   for file in "${files[@]}"; do
     if [[ ! -r ${file} ]]; then
@@ -107,20 +107,20 @@ function build:sign {
     fi
 
     log:debug "Signing build artifact" packages="${packages}" package="${package}" version="${version}" file="${file}" \
-      fingerprint="${fingerprint}"
+      id="0x${id}"
 
     echo "${passphrase}" \
-      | gpg --local-user "${fingerprint}" --batch --passphrase-fd 0 --pinentry-mode loopback --yes \
+      | gpg --local-user "${id}" --batch --passphrase-fd 0 --pinentry-mode loopback --yes \
         --output "${file}.sig" --detach-sign "${file}"
   done
 }
 
 function build:cleanup {
-  local fingerprint="${1}"
+  local id="${1}" fingerprint="${2}"
 
-  log:info "Removing the GPG private key for signing" fingerprint="${fingerprint}"
+  log:info "Removing the GPG private key for signing" id="0x${id}" fingerprint="${fingerprint}"
 
-  if ! gpg --batch --yes --delete-secret-key 0x"${fingerprint}"; then
-    log:warning "Failed to remove the GPG private key" fingerprint="${fingerprint}"
+  if ! gpg --batch --yes --delete-secret-key "${fingerprint}"; then
+    log:warning "Failed to remove the GPG private key" id="0x${id}" fingerprint="${fingerprint}"
   fi
 }

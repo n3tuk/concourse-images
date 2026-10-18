@@ -15,10 +15,12 @@ log:info "Initialising Arch Linux Repository package signer" workdir="${PWD:-}"
 
 check:commands gpg jq logger uuidgen
 
-check:variables gpg_fingerprint gpg_private_key:sensitive gpg_passphrase:sensitive
+check:variables gpg_id gpg_fingerprint gpg_private_key:sensitive gpg_passphrase:sensitive
+
+# Always remove the imported secret key, even on failure, so it never outlives the signing step.
+trap 'build:cleanup "${gpg_id}" "${gpg_fingerprint}"' EXIT
 
 build:import "${gpg_private_key}" "${gpg_passphrase}"
-build:sign packages "0x${gpg_fingerprint}" "${gpg_passphrase}"
-# build:cleanup "${gpg_fingerprint}"
+build:sign packages "0x${gpg_id}" "${gpg_passphrase}"
 
 log:info "All built packages successfully signed"
