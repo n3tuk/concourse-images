@@ -105,7 +105,7 @@ function database:put {
   local database="${1}" repository="${2}"
   local arguments
 
-  log:info "Uploading repoistory database" database="${database}" repository="${repository}"
+  log:info "Uploading repository database" database="${database}" repository="${repository}"
 
   declare -a sources=("${database}" "${database%%.db.tar.gz}.files.tar.gz")
 

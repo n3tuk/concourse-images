@@ -57,9 +57,9 @@ aws s3 ls "${prefix}" --recursive \
 log:info "Checking all current packages" repository="${prefix}"
 
 # Before removing any packages, check that all active packages referenced by the database are present in the bucket. If
-# any are missing, fail the cleanup and log a fatal error. This is a safety check to ensure that we do use an historical
-# version of the database that references packages that have already been removed from the bucket, which in turn can
-# remove newer versions of the same package that are still referenced by current version of the database.
+# any are missing, fail the cleanup and log a fatal error. This is a safety check to ensure that we do not use a
+# historical version of the database that references packages that have already been removed from the bucket, which in
+# turn can remove newer versions of the same package that are still referenced by the current version of the database.
 declare -a missing=()
 while IFS= read -r package; do
   test -n "${package}" || continue
@@ -81,10 +81,10 @@ fi
 
 log:info "All current packages referenced by the database are present" repository="${prefix}"
 
-# TODO: Create a new job which removes packages form the database for which there is no pipeline in Concourse.
-#       We should do this as a depearate job as this will manipulate the database, so better to run this with a shorter
+# TODO: Create a new job which removes packages from the database for which there is no pipeline in Concourse.
+#       We should do this as a separate job as this will manipulate the database, so better to run this with a shorter
 #       window and less frequently than the cleanup job, which is only concerned with removing packages from the bucket
-#       that are no longer
+#       that are no longer referenced.
 
 # For each package file present in the bucket that is NOT the version referenced by the database, remove it and its
 # signature. The database is the source of truth for the current version, so anything it does not reference is an older
@@ -116,4 +116,4 @@ done < "${present}"
 # TODO: Clean up metadata files which do not belong to any package, e.g. if the package was removed manually from the
 #       bucket.
 
-log:info "Repository ceanup completed" repository="${prefix}" removed="${#removed[@]}"
+log:info "Repository cleanup completed" repository="${prefix}" removed="${#removed[@]}"

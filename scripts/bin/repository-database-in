@@ -16,7 +16,7 @@ source "${LIB_DIR}/payload.sh"
 # shellcheck source=../lib/database.sh
 source "${LIB_DIR}/database.sh"
 
-log:info "Initialising Arch Linux repository database retrival"
+log:info "Initialising Arch Linux repository database retrieval"
 
 check:commands aws jq logger mktemp tar uuidgen
 

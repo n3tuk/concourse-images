@@ -65,8 +65,6 @@ function packages:get {
 #
 # repository: The S3 URL prefix of the repository to upload the packages to.
 # base: The name of the package base to upload the packages for.
-# repository: The S3 URL prefix of the repository to upload the packages to.
-# base: The name of the package base to upload the packages for.
 function packages:put {
   local repository="${1}" base="${2}"
   local rollback=0 path="packages"

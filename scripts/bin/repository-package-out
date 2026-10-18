@@ -75,7 +75,7 @@ description=$(metadata:description)
 packages=$(metadata:packages | sed -e 's/,/, /g')
 files=$(metadata:files | sed -e 's/,/, /g')
 
-log:info "All packages for the package base base been successfully uploaded" repository="${prefix}/" base="${base}" \
+log:info "All packages for the package base have been successfully uploaded" repository="${prefix}/" base="${base}" \
   release="${release}"
 
 jq --monochrome-output --compact-output --null-input \

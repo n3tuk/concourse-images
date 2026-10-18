@@ -3,7 +3,7 @@
 
 # metadata:get
 #   Download the metadata artifact for the package base from the repository and save it locally so that we can interact
-#   with the packages in the repository, such as dopwnloading them and adding them to the package database.
+#   with the packages in the repository, such as downloading them and adding them to the package database.
 #
 #   NOTE: As a `get` step in Concourse, everything should be downloaded into the current directory.
 #
