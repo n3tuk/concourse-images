@@ -42,7 +42,7 @@ function ntfysh:send {
 }
 
 function ntfysh:message:build:error {
-  local repository="${1}" package="${2}" arch="${3}"
+  local repository="${1}" arch="${2}" package="${3}"
 
   cat <<EOF | tr '\n' ' '
 Concourse is reporting an **error** when attempting to run the pipeline job to build \`${package}\` for the
@@ -52,7 +52,7 @@ EOF
 }
 
 function ntfysh:message:build:failure {
-  local repository="${1}" package="${2}" arch="${3}"
+  local repository="${1}" arch="${2}" package="${3}"
 
   cat <<EOF | tr '\n' ' '
 Concourse is reporting a **failure** in the pipeline when building \`${package}\` for the \`${repository}/${arch}\`
@@ -61,7 +61,7 @@ EOF
 }
 
 function ntfysh:message:sign:failure {
-  local repository="${1}" package="${2}" version="${3}"
+  local repository="${1}" arch="${2}" package="${3}" version="${4}"
 
   cat <<EOF | tr '\n' ' '
 Concourse is reporting a **failure** in the pipeline when signing \`${package}\` \`v${version}\` for the
