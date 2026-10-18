@@ -21,8 +21,8 @@ case "${NO_COLOR:-}" in
 esac
 
 function log:fmt() {
-  local level="${1}" msgid msg
-  shift
+  local level="${1:-crit}" msgid msg
+  shift || true
 
   if [[ -z ${level} ]]; then
     log:fatal "Missing required log level"
@@ -79,10 +79,12 @@ function log:fmt() {
   echo >&2
 
   msgid=$(uuidgen --time-v7)
+  # Structured logging to the journal/syslog is best-effort: a logger failure must never abort the
+  # resource step, which still needs to emit its JSON document on stdout.
   logger --id=$$ \
     --tag "${0}" --msgid "${msgid}" \
     --priority "user.${level}" \
-    --rfc5424=notq --sd-id logType@1 "${arguments[@]}" "${msg:-}"
+    --rfc5424=notq --sd-id logType@1 "${arguments[@]}" "${msg:-}" || true
 }
 
 function log:success() {
