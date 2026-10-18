@@ -62,23 +62,23 @@ function metadata:put {
     log:fatal "No files found to process" base="${base}" path="${path}" extension=".pkg.tar.zst"
   fi
 
-  log:info "Genetating package base metadata for the repository" repository="${repository}" base="${base}" \
-    description="${description}" version="${version}" release="${release}" arch="$(join_by ", " "${arch[*]}")" \
-    packages="$(join_by ", " "${packages[*]}")" files="$(join_by ", " "${files[*]}")" path="${path}"
+  log:info "Generating package base metadata for the repository" repository="${repository}" base="${base}" \
+    description="${description}" version="${version}" release="${release}" arch="${arch}" \
+    packages="$(join_by ", " "${packages[@]}")" files="$(join_by ", " "${files[@]}")" path="${path}"
 
-  cat <<EOF >"${path}/metadata.json"
-{
-  "version": 1,
-  "base": "${base}",
-  "release": "${version}-${release}",
-  "description": "${description}",
-  "packages": ["$(join_by '", "' "${packages[@]}")"],
-  "arch": "${arch}",
-  "files": ["$(join_by '", "' "${files[@]}")"]
-}
-EOF
+  jq --null-input --compact-output \
+    --arg base "${base}" \
+    --arg release "${version}-${release}" \
+    --arg description "${description}" \
+    --arg arch "${arch}" \
+    --argjson npkg "${#packages[@]}" \
+    --args \
+    '{version: 1, base: $base, release: $release, description: $description, arch: $arch,
+      packages: $ARGS.positional[:$npkg], files: $ARGS.positional[$npkg:]}' \
+    "${packages[@]}" "${files[@]}" \
+    >"${path}/metadata.json"
 
-  cat "${path}/metadata.json" | jq --compact-output
+  jq --compact-output <"${path}/metadata.json"
 
   if ! output=$(aws s3 cp "${path}/metadata.json" "${repository}/${base}.json" 2>&1); then
     echo "${output}" >&2
