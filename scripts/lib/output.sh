@@ -10,10 +10,14 @@ function output:variables {
 
 # Show the value of the variable
 function output:variable {
-  local value="${!1-}"
+  local variable="${1}" value="${!1-}" sensitive="${2:-false}"
   if [[ -z ${value} ]]; then
-    log:debug "variable=${1}" "empty=true"
+    log:debug variable="${variable}" empty="true" sensitive="${sensitive}"
   else
-    log:debug "variable=${1}" "empty=false" "value=${value}"
+    if [[ ${sensitive} != "false" ]]; then
+      log:debug variable="${variable}" empty="false" sensitive="${sensitive}"
+    else
+      log:debug variable="${variable}" empty="false" sensitive="${sensitive}" value="${value}"
+    fi
   fi
 }

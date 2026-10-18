@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# vim:set ft=bash:
+
+set -euo pipefail
+
+LIB_DIR=$(realpath "$(dirname "${0}")/../lib")
+export LIB_DIR
+
+# shellcheck source=../lib/common.sh
+source "${LIB_DIR}/common.sh"
+# shellcheck source=../lib/build.sh
+source "${LIB_DIR}/build.sh"
+
+log:info "Initialising Arch Linux Repository package signer" workdir="${PWD:-}"
+
+check:commands gpg jq logger uuidgen
+
+check:variables gpg_id gpg_fingerprint gpg_private_key:sensitive gpg_passphrase:sensitive
+
+# Always remove the imported secret key, even on failure, so it never outlives the signing step.
+trap 'build:cleanup "0x${gpg_id}" "${gpg_fingerprint}"' EXIT
+
+build:import "${gpg_private_key}" "${gpg_passphrase}"
+build:sign packages "0x${gpg_id}" "${gpg_passphrase}"
+
+log:info "All built packages successfully signed"

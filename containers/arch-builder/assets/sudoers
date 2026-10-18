@@ -1,0 +1,3 @@
+# Allow the builder user within the container full sudo access to the root user to allow it to run necessary commands to
+# install/uninstall packages and manage the build process.
+builder ALL=(root) NOPASSWD: ALL

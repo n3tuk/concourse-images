@@ -6,8 +6,12 @@ RUN apt-get install --no-install-recommends --assume-yes awscli-2 jq bsdutils uu
 
 RUN mkdir -p /opt/resource /opt/lib
 COPY scripts/bin/repository-database-check /opt/resource/check
-COPY scripts/bin/empty-out /opt/resource/out
+COPY scripts/bin/repository-database-out /opt/resource/out
 COPY scripts/bin/repository-database-in /opt/resource/in
 COPY scripts/lib /opt/lib
+
+RUN useradd --system --create-home --home-dir /database --skel /dev/null --user-group database
+USER database
+WORKDIR /database
 
 ENTRYPOINT ["/opt/resource/in"]

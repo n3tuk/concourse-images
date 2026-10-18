@@ -20,6 +20,7 @@ tasks:
       - scripts/lib/*.sh
       - scripts/templates/*.md.t
     silent: true
+    run: when_changed
     deps:
       - task: shellcheck
     cmds:

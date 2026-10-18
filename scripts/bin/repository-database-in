@@ -16,9 +16,11 @@ source "${LIB_DIR}/payload.sh"
 # shellcheck source=../lib/database.sh
 source "${LIB_DIR}/database.sh"
 
-log:info "Initiating Arch Linux repository database retrival"
+log:info "Initialising Arch Linux repository database retrieval"
 
 check:commands aws jq logger mktemp tar uuidgen
+
+payload:read
 
 # If this source is disabled, return an empty array to indicate no versions
 if [[ "$(payload:source disable false false)" == "true" ]]; then
@@ -32,30 +34,39 @@ fi
 
 cd "${1}"
 
-region=$(payload:source region true weur)
 endpoint=$(payload:source endpoint)
+region=$(payload:source region true weur)
 bucket=$(payload:source bucket)
-prefix=$(payload:source prefix)
 repository=$(payload:source repository)
+arch=$(payload:source arch)
+prefix="s3://${bucket}/${repository}/os/${arch}"
+
+check:variables endpoint region bucket repository arch
 
 access_key_id=$(payload:source access_key_id true "" true)
-export AWS_ACCESS_KEY_ID="${access_key_id}"
 secret_access_key=$(payload:source secret_access_key true "" true)
+
+check:variables access_key_id:sensitive secret_access_key:sensitive
+
+export AWS_ACCESS_KEY_ID="${access_key_id}"
 export AWS_SECRET_ACCESS_KEY="${secret_access_key}"
+export AWS_ENDPOINT_URL="${endpoint}"
+export AWS_DEFAULT_REGION="${region}" AWS_REGION="${region}"
+
+function failure {
+  echo -n '{}' >&3
+  log:fatal "Failed to download the repository database" repository="${prefix}" database="${repository}.db.tar.gz"
+}
+
+# If any of the following commands fail, then handle the failure with the failure() function above. This will simplify
+# the error handling and logging, and ensure that the output is always in the expected format for Concourse.
+trap failure ERR
 
 etag=$(payload:version etag)
-if ! database:exists "${region}" "${endpoint}" "${bucket}" "${prefix}" "${repository}" "${etag}"; then
-  echo "[]" >&3
-  log:fatal "Repository database does not exist" bucket="${bucket}" repository="${prefix}/${repository}"
-fi
+database:exists "${bucket}" "${repository}/os/${arch}/${repository}.db.tar.gz" "${etag}"
+database:get "${prefix}/${repository}.db.tar.gz"
 
-log:info "Retrieve the database" bucket="${bucket}" prefix="${prefix}" repository="${repository}"
-
-if ! database:retrieve "${region}" "${endpoint}" "${bucket}" "${prefix}" "${repository}" "${etag}"; then
-  echo "{}" >&3
-  log:fatal "Failed to retrieve the repository database" bucket="${bucket}" repository="${prefix}/${repository}" etag="${etag}"
-fi
-
-log:info "Repository database successfully retrieved" bucket="${bucket}" repository="${prefix}/${repository}"
+log:info "Repository database successfully retrieved" prefix="${prefix}" database="${repository}.db.tar.gz" \
+  etag="${etag}"
 
 jq --monochrome-output --compact-output --null-input --arg "etag" "${etag}" '{"version":{"etag":$etag}}' >&3

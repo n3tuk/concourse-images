@@ -10,6 +10,7 @@ tasks:
       Lint all the bash and bats files with shfmt to ensure they are formatted correctly and consistently before staging
       and committing changes.
     silent: true
+    run: when_changed
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mCompelted\e[0m'{{ end }}"
       - task: shfmt:bash

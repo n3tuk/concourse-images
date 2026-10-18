@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# vim:set ft=bash:
+
+set -euo pipefail
+
+exec 3>&1 # make stdout available as fd 3 for the result
+exec 1>&2 # redirect all output to stderr for logging
+
+LIB_DIR=$(realpath "$(dirname "${0}")/../lib")
+export LIB_DIR
+
+# shellcheck source=../lib/common.sh
+source "${LIB_DIR}/common.sh"
+# shellcheck source=../lib/payload.sh
+source "${LIB_DIR}/payload.sh"
+# shellcheck source=../lib/packages.sh
+source "${LIB_DIR}/packages.sh"
+# shellcheck source=../lib/metadata.sh
+source "${LIB_DIR}/metadata.sh"
+
+log:info "Initialising Arch Linux repository packages upload"
+
+check:commands aws jq logger mktemp tar uuidgen
+
+payload:read
+
+# If this source is disabled, return an empty array to indicate no versions
+if [[ "$(payload:source disable false false)" == "true" ]]; then
+  echo "[]" >&3
+  exit 0
+fi
+
+if test -z "${1:-}"; then
+  log:fatal "Missing working directory argument"
+fi
+
+cd "${1}"
+
+endpoint=$(payload:source endpoint)
+region=$(payload:source region true weur)
+bucket=$(payload:source bucket)
+repository=$(payload:source repository)
+arch=$(payload:source arch)
+base=$(payload:source base)
+prefix="s3://${bucket}/${repository}/os/${arch}"
+
+check:variables endpoint region bucket repository arch base
+
+access_key_id=$(payload:source access_key_id true "" true)
+secret_access_key=$(payload:source secret_access_key true "" true)
+
+check:variables access_key_id:sensitive secret_access_key:sensitive
+
+export AWS_ACCESS_KEY_ID="${access_key_id}"
+export AWS_SECRET_ACCESS_KEY="${secret_access_key}"
+export AWS_ENDPOINT_URL="${endpoint}"
+export AWS_DEFAULT_REGION="${region}" AWS_REGION="${region}"
+
+function failure {
+  echo -n '{}' >&3
+  log:fatal "Failed to upload the packages" repository="${prefix}" base="${base}"
+}
+
+# If any of the following commands fail, then handle the failure with the failure() function above. This will simplify
+# the error handling and logging, and ensure that the output is always in the expected format for Concourse.
+trap failure ERR
+
+packages:put "${prefix}" "${base}"
+metadata:put "${prefix}" "${base}" "${arch}"
+
+release=$(metadata:release)
+test -n "${release}"
+
+description=$(metadata:description)
+packages=$(metadata:packages | sed -e 's/,/, /g')
+files=$(metadata:files | sed -e 's/,/, /g')
+
+log:info "All packages for the package base have been successfully uploaded" repository="${prefix}/" base="${base}" \
+  release="${release}"
+
+jq --monochrome-output --compact-output --null-input \
+  --arg "release" "${release}" --arg "base" "${base}" \
+  --arg "description" "${description}" --arg "packages" "${packages}" --arg "files" "${files}" \
+  '{ "version": {"release":$release},
+     "metadata": [
+       {"name":"base","value":$base},
+       {"name":"release","value":$release},
+       {"name":"description","value":$description},
+       {"name":"packages","value":$packages},
+       {"name":"files","value":$files}
+     ]
+   }' >&3

@@ -9,6 +9,7 @@ tasks:
       Run a static analysis on all the bash and bats files with shellcheck to ensure they are free of syntax errors and
       potential issues before staging and committing changes.
     silent: true
+    run: when_changed
     cmds:
       - defer: "echo -e {{ if .EXIT_CODE }}'\e[1;31mFailed\e[0m'{{ else }}'\e[0;32mCompleted\e[0m'{{ end }}"
       - task: shellcheck:bash
@@ -36,6 +37,7 @@ tasks:
             | sed 's|^\./||' | paste -sd' ' - \
           || true
     silent: true
+    run: when_changed
     deps:
       - task: shfmt:bash
     cmds:
@@ -55,6 +57,7 @@ tasks:
       files:
         sh: find scripts/tests -type f -iname '*.bats' -print 2>/dev/null | sed 's|^\./||' | paste -sd' ' - || true
     silent: true
+    run: when_changed
     deps:
       - task: shfmt:bats
     cmds:
@@ -76,6 +79,7 @@ tasks:
           find scripts/tests/helpers -type f -iname '*.bash' -print 2>/dev/null | sed 's|^\./||' | paste -sd' ' - \
           || true
     silent: true
+    run: when_changed
     deps:
       - task: shfmt:helpers
     cmds:

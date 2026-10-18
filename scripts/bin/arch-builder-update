@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# vim:set ft=bash:
+
+set -euo pipefail
+
+LIB_DIR=$(realpath "$(dirname "${0}")/../lib")
+export LIB_DIR
+
+# shellcheck source=../lib/common.sh
+source "${LIB_DIR}/common.sh"
+# shellcheck source=../lib/database.sh
+source "${LIB_DIR}/database.sh"
+
+log:info "Initialising Arch Linux Repository database updater" workdir="${PWD:-}"
+
+check:commands jq logger repo-add uuidgen
+
+check:variables repository
+
+# These paths are hard-coded to both the build container and the package build pipeline resources.
+database:update "database/${repository}.db.tar.gz" packages/
+
+log:info "Arch Linux Repository database successfully updated" repository="${repository}"

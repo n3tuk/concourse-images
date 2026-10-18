@@ -11,67 +11,85 @@ source "${LIB_DIR}/common.sh"
 # shellcheck source=../lib/database.sh
 source "${LIB_DIR}/database.sh"
 
-log:info "Initiating Arch Linux repository cleanup"
+log:info "Initialising Arch Linux repository package cleanup"
 
 check:commands aws jq logger mktemp uuidgen
 
-check:variables endpoint region bucket prefix repository
+check:variables endpoint region bucket repository arch
 check:variables access_key_id:sensitive secret_access_key:sensitive
 
 export AWS_ACCESS_KEY_ID="${access_key_id:-}"
 export AWS_SECRET_ACCESS_KEY="${secret_access_key:-}"
+export AWS_ENDPOINT_URL="${endpoint}"
+export AWS_DEFAULT_REGION="${region}" AWS_REGION="${region}"
 
-resource="repository-database"
-referenced=$(mktemp)
-present=$(mktemp)
+prefix="s3://${bucket}/${repository}/os/${arch}"
+resource="database"
+referenced=$(mktemp -t repository-cleanup-referenced-XXXXXX)
+present=$(mktemp -t repository-cleanup-present-XXXXXX)
 
-if ! database:extract "${resource}" "${repository}"; then
-  log:fatal "Failed to extract the repository database" resource="${resource}" database="${repository}.db.tar.gz"
-fi
+function failure {
+  log:fatal "Failed to cleanup the repository packages" repository="${prefix}"
+}
 
-log:info "Reading the package database" resource="${resource}" database="${repository}.db.tar.gz"
+# If any of the following commands fail, then handle the failure with the failure() function above. This will simplify
+# the error handling and logging, and ensure that the output is always in the expected format for Concourse.
+trap failure ERR
 
-# The database contains one directory per package, named "<pkgname>-<version>"; record the referenced package filename
-# for each entry so we can compare it to the list of package files present in the bucket.
+log:info "Reading the package database" resource="${resource}" database="${repository}.db.tar.gz" \
+  referenced="${referenced}"
+
+database:extract "${resource}/${repository}.db.tar.gz"
 for desc in "${resource}"/db/*/desc; do
+  # The database contains one directory per package, named "<pkgname>-<version>"; record the referenced package filename
+  # for each entry so we can compare it to the list of package files present in the bucket.
   test -f "${desc}" || continue
   awk '/^%FILENAME%$/{getline; print}' "${desc}" >> "${referenced}"
 done
 
-log:info "Listing all known packages" bucket="${bucket}" prefix="${prefix}" repository="${repository}"
+log:info "Listing all known packages" repository="${prefix}" present="${present}"
 
-aws s3 --region "${region}" --endpoint-url "${endpoint}" ls "s3://${bucket}/${prefix}/" --recursive \
+aws s3 ls "${prefix}" --recursive \
 | awk '{print $4}' \
+| sed -e "s|${repository}/os/${arch}/||" \
 | grep -E '\.pkg\.tar\.zst$' > "${present}" || true
 
+log:info "Checking all current packages" repository="${prefix}"
+
 # Before removing any packages, check that all active packages referenced by the database are present in the bucket. If
-# any are missing, fail the cleanup and log a fatal error. This is a safety check to ensure that we do use an historical
-# version of the database that references packages that have already been removed from the bucket, which in turn can
-# remove newer versions of the same package that are still referenced by current version of the database.
-missing=0
+# any are missing, fail the cleanup and log a fatal error. This is a safety check to ensure that we do not use a
+# historical version of the database that references packages that have already been removed from the bucket, which in
+# turn can remove newer versions of the same package that are still referenced by the current version of the database.
+declare -a missing=()
 while IFS= read -r package; do
   test -n "${package}" || continue
 
-  log:debug "Checking for package" bucket="${bucket}" prefix="${prefix}" repository="${repository}" package="${package}"
+  log:debug "Checking for package" repository="${prefix}" package="${package}"
 
-  if grep -qxF "${prefix}/${package}" "${present}"; then
+  if grep -qxF "${package}" "${present}"; then
     continue
   fi
 
-  log:warning "Active package not found in bucket" bucket="${bucket}" prefix="${prefix}" repository="${repository}" package="${package}"
-  missing=1
+  log:warning "Current package not found in bucket" repository="${repository}" package="${package}"
+  missing+=("${package}")
 done < "${referenced}"
 
-if test "${missing}" -gt 0; then
-  log:fatal "One or more active packages referenced by the database are missing from the bucket" bucket="${bucket}" prefix="${prefix}" repository="${repository}" missing="${missing}"
+if test "${#missing[@]}" -gt 0; then
+  log:fatal "Current packages referenced by the database are missing from the bucket" repository="${prefix}" \
+    missing="${#missing[@]}" packages="$(join_by ", " "${missing[@]}")"
 fi
 
-log:info "All active packages referenced by the database are present in the bucket" bucket="${bucket}" prefix="${prefix}" repository="${repository}" missing="${missing}"
+log:info "All current packages referenced by the database are present" repository="${prefix}"
+
+# TODO: Create a new job which removes packages from the database for which there is no pipeline in Concourse.
+#       We should do this as a separate job as this will manipulate the database, so better to run this with a shorter
+#       window and less frequently than the cleanup job, which is only concerned with removing packages from the bucket
+#       that are no longer referenced.
 
 # For each package file present in the bucket that is NOT the version referenced by the database, remove it and its
 # signature. The database is the source of truth for the current version, so anything it does not reference is an older
 # version safe to delete.
-removed=0
+declare -a removed=()
 while IFS= read -r package; do
   test -n "${package}" || continue
   filename="$(basename "${package}")"
@@ -80,13 +98,22 @@ while IFS= read -r package; do
     continue
   fi
 
-  log:info "Removing unreferenced package" bucket="${bucket}" prefix="${prefix}" repository="${repository}" package="${package}"
-  if ! aws s3 --region "${region}" --endpoint-url "${endpoint}" rm "s3://${bucket}/${package}"; then
-    log:warning "Failed to remove package" bucket="${bucket}" prefix="${prefix}" repository="${repository}" package="${package}"
-  else
-    aws s3 --region "${region}" --endpoint-url "${endpoint}" rm "s3://${bucket}/${package}.sig" || true
-    removed=$((removed + 1))
+  log:info "Removing unreferenced package" repository="${prefix}" package="${package}"
+  removed+=("${package}")
+
+  if ! aws s3 rm "${prefix}/${package}"; then
+    log:warning "Failed to remove package" repository="${prefix}" package="${package}"
+  fi
+
+  if ! aws s3 rm "${prefix}/${package}.sig"; then
+    log:warning "Failed to remove package signature" repository="${prefix}" package="${package}.sig"
   fi
 done < "${present}"
 
-log:info "Cleanup complete" bucket="${bucket}" prefix="${prefix}" repository="${repository}" missing="${missing}" removed="${removed:-0}"
+# TODO: Clean up signatures which do not belong to any package, e.g. if the package was removed manually from the
+#       bucket.
+
+# TODO: Clean up metadata files which do not belong to any package, e.g. if the package was removed manually from the
+#       bucket.
+
+log:info "Repository cleanup completed" repository="${prefix}" removed="${#removed[@]}"
