@@ -35,7 +35,7 @@ function packages:get {
   for file in "${files[@]}"; do
     # Reject any file names that are not a simple file name with the expected extension, preventing any path traversal
     # or other unexpected file names from being used to download files from the repository by a malicious metadata file.
-    if [[ ${file} != "$(basename "${file}")" || ! ${file} =~ ^[A-Za-z0-9][A-Za-z0-9._+-]*\.pkg\.tar\.zst$ ]]; then
+    if [[ ${file} != "$(basename "${file}")" || ! ${file} =~ ^[A-Za-z0-9][A-Za-z0-9:._+-]+[A-Za-z0-9]\.pkg\.tar\.zst$ ]]; then
       log:fatal "Refusing to process package file with an unexpected name" base="${base}" file="${file}"
     fi
 
