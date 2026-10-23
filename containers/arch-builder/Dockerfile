@@ -30,6 +30,17 @@ COPY containers/arch-builder/assets/sudoers /etc/sudoers.d/builder
 USER builder
 WORKDIR /build
 
+# Arch User Repository Keys:
+# 0x8CA32F8BF3BC8088 ALHP
+# 0x46D62DD9F1DE636E Neofetch
+# 0x2BA2CD21B5B09570 Signal
+
+RUN gpg --list-keys && \
+    gpg --recv-keys 0x8CA32F8BF3BC8088 && \
+		gpg --recv-keys 0x46D62DD9F1DE636E && \
+		gpg --recv-keys 0x2BA2CD21B5B09570 && \
+		rm -f /build/.gnupg/public-keys.d/pubring.db.lock
+
 # Import the repository public key into the GPG keyring under the builder user in preparation for importing the private
 # key for signing packages, but forcefully remove the lock file once done as it will otherwise prevent the importing
 RUN gpg --batch --yes --import /tmp/repository.pub && rm -f /build/.gnupg/public-keys.d/pubring.db.lock
